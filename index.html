@@ -6,9 +6,27 @@
 <body>
   <h1>AI Voice Generator</h1>
 
-  <textarea rows="6" cols="50" placeholder="Type your text here..."></textarea>
+  <textarea id="textInput" rows="6" cols="50"
+    placeholder="Type your text here..."></textarea>
   <br><br>
 
-  <button>Generate Voice</button>
+  <button onclick="generateVoice()">Generate Voice</button>
+
+  <p id="status"></p>
+
+  <script>
+    function generateVoice() {
+      const text = document.getElementById("textInput").value;
+
+      if (text === "") {
+        document.getElementById("status").innerText =
+          "Please type some text first!";
+        return;
+      }
+
+      document.getElementById("status").innerText =
+        "Voice generation coming soon...";
+    }
+  </script>
 </body>
 </html>
