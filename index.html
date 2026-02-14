@@ -1,31 +1,184 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>AI Voice Web App</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice AI</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #e8e8e8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: #8892b0;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 480px;
+      backdrop-filter: blur(10px);
+    }
+    #textInput {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      color: #e8e8e8;
+      font-size: 1rem;
+      resize: vertical;
+      margin-bottom: 1rem;
+    }
+    #textInput::placeholder { color: #6c7a9e; }
+    #textInput:focus {
+      outline: none;
+      border-color: #64ffda;
+      box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.15);
+    }
+    button {
+      width: 100%;
+      padding: 0.9rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      background: linear-gradient(135deg, #64ffda 0%, #4fd1b8 100%);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(100, 255, 218, 0.3);
+    }
+    button:active { transform: translateY(0); }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #status {
+      min-height: 1.5rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #8892b0;
+    }
+    #status.error { color: #ff6b6b; }
+    #status.success { color: #64ffda; }
+    .audio-wrap {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .audio-wrap h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #8892b0;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    audio {
+      width: 100%;
+      height: 48px;
+      border-radius: 8px;
+    }
+  </style>
 </head>
 <body>
-  <h1>AI Voice Generator</h1>
-
-  <textarea id="textInput" rows="6" cols="50"
-    placeholder="Type your text here..."></textarea>
-  <br><br>
-
-  <button onclick="generateVoice()">Generate Voice</button>
-
-  <p id="status"></p>
+  <h1>Voice AI</h1>
+  <p class="subtitle">Type text and hear it spoken</p>
+  <div class="card">
+    <textarea
+      id="textInput"
+      placeholder="Enter text to convert to speech..."
+      maxlength="5000"
+    ></textarea>
+    <button type="button" id="generateBtn" onclick="generateVoice()">
+      Generate voice
+    </button>
+    <p id="status" role="status"></p>
+    <div class="audio-wrap" id="audioWrap" style="display: none;">
+      <h3>Playback</h3>
+      <audio id="audioPlayer" controls></audio>
+    </div>
+  </div>
 
   <script>
-    function generateVoice() {
-      const text = document.getElementById("textInput").value;
+    const API_BASE = "http://127.0.0.1:8000";
 
-      if (text === "") {
-        document.getElementById("status").innerText =
-          "Please type some text first!";
+    async function generateVoice() {
+      const text = document.getElementById("textInput").value.trim();
+      const statusEl = document.getElementById("status");
+      const btn = document.getElementById("generateBtn");
+      const audioWrap = document.getElementById("audioWrap");
+      const audioPlayer = document.getElementById("audioPlayer");
+
+      statusEl.className = "";
+      audioWrap.style.display = "none";
+
+      if (!text) {
+        statusEl.textContent = "Please type some text first.";
+        statusEl.classList.add("error");
         return;
       }
 
-      document.getElementById("status").innerText =
-        "Voice generation coming soon...";
+      btn.disabled = true;
+      statusEl.textContent = "Generating voice...";
+
+      try {
+        const response = await fetch(`${API_BASE}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err || `Server error: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("Content-Type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          statusEl.textContent = data.message || "Backend received your text (no audio).";
+          statusEl.classList.add("success");
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        audioWrap.style.display = "block";
+        statusEl.textContent = "Ready. Use the player below to listen.";
+        statusEl.classList.add("success");
+      } catch (err) {
+        statusEl.textContent = err.message || "Error connecting to backend. Is it running on port 8000?";
+        statusEl.classList.add("error");
+      } finally {
+        btn.disabled = false;
+      }
     }
   </script>
 </body>
